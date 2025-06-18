@@ -1,4 +1,6 @@
 <?php
+// تضمين دوال التصحيح المشتركة
+require_once plugin_dir_path(__FILE__) . 'includes/common-debug.php';
 /**
  * عرض صفحة الـ AI Agent (الواجهة الأساسية للدردشة).
  */
