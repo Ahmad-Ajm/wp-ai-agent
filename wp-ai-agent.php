@@ -48,11 +48,13 @@ function wpai_activate_plugin() {
     ) $charset_collate;";
 
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+
     dbDelta($sql);
     wpai_debug_log("تم تشغيل wpai_activate_plugin: تم إنشاء جدول الجلسات إن لم يكن موجودًا");
 }
 register_activation_hook(__FILE__, 'wpai_activate_plugin');
-
+require_once plugin_dir_path(__FILE__) . 'preview-page.php';
 /**
  * تسجيل إضافة صفحة لوحة التحكم وصفحة إعدادات وصفحة إدارة الجلسات.
  */
@@ -81,6 +83,16 @@ function wpai_register_admin_pages() {
         'wpai_render_settings_page'
     );
 
+add_submenu_page(
+    'wp-ai-agent', // أو slug القائمة الرئيسية الخاصة بك
+    'معاينة حية', // عنوان الصفحة
+    'Live Preview', // اسم في القائمة
+    'manage_options',
+    'wpai-preview',
+    'wpai_preview_page'
+);
+
+
     // صفحة إدارة الجلسات
     add_submenu_page(
         'wp-ai-agent',
@@ -99,6 +111,15 @@ function wpai_register_admin_pages() {
  */
 add_action('admin_enqueue_scripts', 'wpai_enqueue_admin_assets');
 function wpai_enqueue_admin_assets($hook) {
+    $site_info = array(
+        'name' => get_bloginfo('name'),
+        'desc' => get_bloginfo('description'),
+        'home' => home_url(),
+        'admin' => admin_url(),
+        'locale' => get_locale()
+    );
+wp_localize_script('wpai-1', 'dataIni', $site_info);
+
     // نحرص على تحميل الأكواد فقط في صفحات هذه الإضافة
     $allowed_hooks = [
         'toplevel_page_wp-ai-agent',
@@ -193,6 +214,8 @@ function wpai_enqueue_admin_assets($hook) {
  */
 require_once plugin_dir_path(__FILE__) . 'admin-page.php';
 require_once plugin_dir_path(__FILE__) . 'ajax-handler.php';
+require_once plugin_dir_path(__FILE__) . 'includes/rest-command-handler.php';
+
 
 /**
  * عرض صفحة الإعدادات (Settings).

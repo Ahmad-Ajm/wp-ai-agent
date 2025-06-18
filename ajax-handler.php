@@ -315,115 +315,57 @@ add_action( 'wp_ajax_wpai_get_site_info', function() {
  * إجراء جديد للتعامل مع JSON الذي يرسله الذكاء بعد #code
  * يقوم بإنشاء الصفحات وتعيين الألوان والإعدادات بناءً على الهيكل المرسل.
  */
-add_action( 'wp_ajax_wpai_execute_code', 'wpai_execute_code_handler' );
-function wpai_execute_code_handler() {
-    // تحقق من صحة النونْس
-    if ( empty( $_POST['security'] ) || ! wp_verify_nonce( sanitize_text_field( $_POST['security'] ), 'wpai_nonce' ) ) {
-        wp_send_json_error( [ 'message' => 'فشل التحقق الأمني.' ] );
-    }
 
-    // الحصول على الحمولة (JSON) وفك تشفيرها
-    if ( empty( $_POST['payload'] ) ) {
-        wp_send_json_error( [ 'message' => 'لا توجد بيانات payload.' ] );
-    }
-    $payload_raw = wp_unslash( $_POST['payload'] );
-    $data = json_decode( $payload_raw, true );
-    if ( null === $data ) {
-        wp_send_json_error( [ 'message' => 'تعذّر فك ترميز JSON.' ] );
-    }
 
-    // التوقعات: الهيكل يكون بهذا الشكل:
-    // {
-    //   "site": {
-    //     "title": "عنوان الموقع",
-    //     "pages": [
-    //       { "name": "...", "content": "..." },
-    //       { "name": "...", "content": "..." },
-    //       ...
-    //     ],
-    //     "theme": {
-    //       "colors": {
-    //           "primary": "#ffcc00",
-    //           "secondary": "#00ccff",
-    //           "background": "#ffffff"
-    //       }
-    //     }
-    //   }
-    // }
+add_action( 'wp_ajax_wpai_execute_code', 'wpai_execute_code_callback' );
+function wpai_execute_code_callback() {
+    check_ajax_referer( 'wpai_nonce', 'security' );
 
-    $result_messages = [];
+    $type    = isset( $_POST['type'] )    ? sanitize_text_field( $_POST['type'] )    : '';
+    $payload = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
 
-    // 1. تغيير عنوان الموقع مباشرة (option 'blogname')
-    if ( isset( $data['site']['title'] ) ) {
-        update_option( 'blogname', sanitize_text_field( $data['site']['title'] ) );
-        $result_messages[] = "تم ضبط عنوان الموقع: " . sanitize_text_field( $data['site']['title'] );
-    }
-
-    // 2. ضبط الألوان في خيارات السمة (Theme Mod) إذا وُجدت
-    if ( isset( $data['site']['theme']['colors'] ) && is_array( $data['site']['theme']['colors'] ) ) {
-        $colors = $data['site']['theme']['colors'];
-        // على سبيل المثال، نفرض أننا نحفظها كـ option حتى يقرأها CSS لاحقًا
-        update_option( 'wpai_theme_color_primary', sanitize_hex_color( $colors['primary'] ) );
-        update_option( 'wpai_theme_color_secondary', sanitize_hex_color( $colors['secondary'] ) );
-        update_option( 'wpai_theme_color_background', sanitize_hex_color( $colors['background'] ) );
-        $result_messages[] = "تم ضبط ألوان السمة (primary, secondary, background).";
-    }
-
-    // 3. إنشاء الصفحات الواردة أو تحديثها
-    if ( isset( $data['site']['pages'] ) && is_array( $data['site']['pages'] ) ) {
-        foreach ( $data['site']['pages'] as $page_data ) {
-            if ( ! isset( $page_data['name'] ) ) {
-                continue;
-            }
-            $page_title = sanitize_text_field( $page_data['name'] );
-            $page_content = '';
-            if ( isset( $page_data['content'] ) ) {
-                // إذا كان النص بسيطًا
-                if ( is_string( $page_data['content'] ) ) {
-                    $page_content = wp_kses_post( $page_data['content'] );
-                }
-                // إذا كان مصفوفة (مثل Products)
-                elseif ( is_array( $page_data['content'] ) ) {
-                    // نحمّل محتوى وهمي على شكل قائمة
-                    $page_content .= "<ul>";
-                    foreach ( $page_data['content'] as $item ) {
-                        if ( is_array( $item ) && isset( $item['product_name'] ) ) {
-                            $item_name = sanitize_text_field( $item['product_name'] );
-                            $item_desc = isset( $item['description'] ) ? sanitize_text_field( $item['description'] ) : '';
-                            $page_content .= "<li><strong>{$item_name}</strong>: {$item_desc}</li>";
-                        }
-                    }
-                    $page_content .= "</ul>";
-                }
-            }
-
-            // تحقق إذا كانت الصفحة موجودة بالفعل
-            $existing = get_page_by_title( $page_title, OBJECT, 'page' );
-            if ( $existing ) {
-                // حدِّث المحتوى فقط
-                wp_update_post( [
-                    'ID'           => $existing->ID,
-                    'post_content' => $page_content,
-                ] );
-                $result_messages[] = "تم تحديث صفحة «{$page_title}».";
-            } else {
-                // إنشاؤها
-                $new_id = wp_insert_post( [
-                    'post_title'   => $page_title,
-                    'post_content' => $page_content,
-                    'post_status'  => 'publish',
-                    'post_type'    => 'page',
-                ] );
-                if ( is_wp_error( $new_id ) ) {
-                    $result_messages[] = "❌ خطأ في إنشاء صفحة «{$page_title}»: " . $new_id->get_error_message();
-                } else {
-                    $result_messages[] = "✅ تم إنشاء صفحة «{$page_title}».";
-                }
-            }
+    try {
+        // 1. فك JSON والتحقق من صحته
+        $data = json_decode( $payload, true );
+        if ( json_last_error() !== JSON_ERROR_NONE ) {
+            throw new ValidationException(
+                'بنية JSON غير صالحة',
+                [ 'json_error' => json_last_error_msg() ]
+            );
         }
+
+        // 2. التحقق من سلامة البيانات حسب النوع
+        $validator = new CodeValidator();
+        $validator->validate( $type, $data );
+
+        // 3. إنشاء المنفذ المناسب وتنفيذ الكود
+        $executor = CodeExecutorFactory::create( $type );
+        $result   = $executor->execute( $data );
+
+        // 4. إعادة النتيجة بنجاح
+        wp_send_json_success( $result );
+
+    } catch ( ValidationException $e ) {
+        // أخطاء التحقق
+        wp_send_json_error( [
+            'type'    => 'validation',
+            'message' => $e->getMessage(),
+            'errors'  => $e->getDetails(),
+        ] );
+
+    } catch ( ExecutionException $e ) {
+        // أخطاء أثناء التنفيذ
+        wp_send_json_error( [
+            'type'    => 'execution',
+            'message' => $e->getMessage(),
+            'trace'   => $e->getTrace(),
+        ] );
+
+    } catch ( Exception $e ) {
+        // أي خطأ عام غير متوقع
+        wp_send_json_error( [
+            'type'    => 'general',
+            'message' => $e->getMessage(),
+        ] );
     }
-
-    // 4. الرد بنجاح مع تفاصيل الإجراءات التي تمت
-    wp_send_json_success( [ 'message' => implode("\n", $result_messages) ] );
 }
-

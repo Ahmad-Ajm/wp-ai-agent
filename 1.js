@@ -63,14 +63,23 @@ jQuery(function($) {
 
     let basePromptSent = false;
 
-    function trySendBasePrompt() {
-        if (!sessionStorage.getItem("basePromptSent") && wpAiAgent.basePrompt?.trim()) {
-            memoryManager.add("system", wpAiAgent.basePrompt);
-            logManager.log("✅ تم إرسال البرومبت الأساسي عند تشغيل الصفحة");
-            sessionStorage.setItem("basePromptSent", "true");
-            basePromptSent = true;
+    async function trySendBasePrompt() {
+    if (!sessionStorage.getItem("basePromptSent") && wpAiAgent.basePrompt?.trim()) {
+        // إنشاء محتوى البرومبت الكامل
+        let fullPrompt = wpAiAgent.basePrompt;
+        
+        // إضافة dataIni إذا كان متاحاً
+        if (typeof window.dataIni !== 'undefined') {
+            const dataPayload = JSON.stringify(window.dataIni, null, 2);
+            fullPrompt += "\n\n#dataini\n" + dataPayload;
         }
+        
+        memoryManager.add("system", fullPrompt);
+        logManager.log("✅ تم إرسال البرومبت الأساسي مع بيانات الموقع");
+        sessionStorage.setItem("basePromptSent", "true");
+        basePromptSent = true;
     }
+}
 
     let apiKey = '';
     let aiProvider = 'gpt';
@@ -78,22 +87,18 @@ jQuery(function($) {
     const PROMPT_SENT_KEY = 'wpai_prompt_sent';
 
     async function initializeAI() {
-        if (instructionsSent) return;
-        instructionsSent = true;
+    if (instructionsSent) return;
+    instructionsSent = true;
 
-        wpAiUI.showLoading();
-        try {
-            const base = wpAiAgent.basePrompt || '';
-            if (base) {
-                await memoryManager.add("system", base);
-                wpAiUI.appendLog("✅ تم حفظ البرومبت الرئيسي في الذاكرة");
-            }
-        } catch (e) {
-            logManager.error(e, "initializeAI - إضافة البرومبت الرئيسي");
-        } finally {
-            wpAiUI.hideLoading();
-        }
+    wpAiUI.showLoading();
+    try {
+        trySendBasePrompt(); // تأكد من إرسال البرومبت عند كل بداية جلسة
+    } catch (e) {
+        logManager.error(e, "initializeAI - إضافة البرومبت الرئيسي");
+    } finally {
+        wpAiUI.hideLoading();
     }
+}
 
     async function collectSiteInfo() {
         try {
@@ -112,52 +117,57 @@ jQuery(function($) {
         logManager.log("⚠️ الـ nonce غير متوفر. تأكد من تحميل الصفحة من wp-admin.");
         return;
     }
-        await memoryManager.add("user", userMessage);
-        logManager.log("📤 تم إرسال إلى الذكاء:" + userMessage);
+    await memoryManager.add("user", userMessage);
+    logManager.log("📤 تم إرسال إلى الذكاء:" + userMessage);
 
-        let messagesToSend = memoryManager.getContext();
-        if (memoryManager.summary) {
-            messagesToSend.push({ role: "system", content: `#smry2\n${memoryManager.summary}` });
-        }
+    let messagesToSend = memoryManager.getContext();
 
-        const payload = {
-            model: aiProvider === 'gpt' ? "gpt-4o" : "deepseek-coder",
-            messages: messagesToSend,
-            max_tokens: 2000
-        };
+    // ✅ إرسال بيانات dataIni دائماً مع كل برومبت رئيسي، بشكل آمن ومحترف
+    
 
-        if (JSON.stringify(payload).length > 1e6) {
-            const compressed = await compressData(JSON.stringify(payload));
-            logManager.log("إرسال بيانات مضغوطة:\n" + compressed);
-        } else {
-            logManager.log("إرسال:\n" + JSON.stringify(messagesToSend, null, 2));
-        }
-
-        const endpoint = aiProvider === 'gpt'
-            ? "https://api.openai.com/v1/chat/completions"
-            : "https://api.deepseek.com/v1/chat/completions";
-
-        try {
-            const res = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer " + apiKey 
-                },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error?.message || res.statusText);
-
-            const reply = data.choices?.[0]?.message?.content || JSON.stringify(data);
-            await memoryManager.add("assistant", reply);
-            logManager.log("رد المزود:\n" + reply);
-            handleAgentResponse(reply);
-        } catch (e) {
-            logManager.error(e, "sendToAI - إرسال إلى المزود");
-            wpAiUI.addMessage('error', "خطأ: " + e.message);
-        }
+    if (memoryManager.summary) {
+        messagesToSend.push({ role: "system", content: "#smry2\n" + memoryManager.summary });
     }
+
+    const payload = {
+        model: aiProvider === 'gpt' ? "gpt-4o" : "deepseek-coder",
+        messages: messagesToSend,
+        max_tokens: 2000
+    };
+
+    if (JSON.stringify(payload).length > 1e6) {
+        const compressed = await compressData(JSON.stringify(payload));
+        logManager.log("إرسال بيانات مضغوطة:\n" + compressed);
+    } else {
+        logManager.log("إرسال:\n" + JSON.stringify(messagesToSend, null, 2));
+    }
+
+    const endpoint = aiProvider === 'gpt'
+        ? "https://api.openai.com/v1/chat/completions"
+        : "https://api.deepseek.com/v1/chat/completions";
+
+    try {
+        const res = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + apiKey 
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || res.statusText);
+
+        const reply = data.choices?.[0]?.message?.content || JSON.stringify(data);
+        await memoryManager.add("assistant", reply);
+        logManager.log("رد المزود:\n" + reply);
+        handleAgentResponse(reply);
+    } catch (e) {
+        logManager.error(e, "sendToAI - إرسال إلى المزود");
+        wpAiUI.addMessage('error', "خطأ: " + e.message);
+    }
+}
+
 
     async function sendToAIWithMessages(messagesToSend, hideFromChat = false) {
         const endpoint = aiProvider === 'gpt'
@@ -193,59 +203,36 @@ jQuery(function($) {
     }
 
     function handleAgentResponse(text) {
-    if (text.includes('#dsn')) {
-        if (typeof loadDesignPanel === 'function') {
-            $(document).trigger('wpai_assistant_response', [text]);
-        }
-    }
-
-    if (text.includes('#smry')) {
-        memoryManager.summary = text.split('#smry')[1]?.trim();
-        memoryManager.dbStorage.save({ history: memoryManager.history, summary: memoryManager.summary });
-    }
-
-    if (text.includes('#code')) {
-        const codeRaw = text.split('#code')[1]?.trim();
-
-        const stripped = codeRaw
-            .replace(/^```(php|json|js)?/i, '')
-            .replace(/```$/, '')
-            .trim();
-
-        if (stripped.startsWith('{') && stripped.endsWith('}')) {
-            try {
-                const parsed = JSON.parse(stripped);
-                $(document).trigger('wpai_assistant_response', [`#code\n${JSON.stringify(parsed)}`]);
-            } catch (err) {
-                wpAiUI.appendLog("❌ JSON غير صالح بعد التنظيف: " + err.message);
+      if (text.includes('#dsn')) {
+            if (typeof loadDesignPanel === 'function') {
+                $(document).trigger('wpai_assistant_response', [text]);
             }
-        } else if (typeof window.wpAiCode?.execCode === 'function') {
-            window.wpAiCode.execCode(stripped, result => wpAiUI.addMessage('user', result));
-        } else {
-            wpAiUI.appendLog("⚠️ لم يتم التعرف على الكود أو دالة التنفيذ غير معرفة");
         }
-    }
 
-    if (text.includes('#preview')) {
-        const previewData = text.split('#preview')[1]?.trim();
-        if (window.wpAiPagePanel?.updatePreview) {
-            window.wpAiPagePanel.updatePreview(previewData);
+        if (text.includes('#smry')) {
+            memoryManager.summary = text.split('#smry')[1]?.trim();
+            memoryManager.dbStorage.save({ history: memoryManager.history, summary: memoryManager.summary });
         }
-    }
 
-    if (text.includes('#apply')) {
-        const designData = JSON.parse(text.split('#apply')[1]?.trim() || '{}');
-        if (window.wpAiPagePanel?.applyDesign) {
-            window.wpAiPagePanel.applyDesign(designData);
+        if (text.includes('#preview')) {
+            const previewData = text.split('#preview')[1]?.trim();
+            if (window.wpAiPagePanel?.updatePreview) {
+                window.wpAiPagePanel.updatePreview(previewData);
+            }
         }
-        memoryManager.clear();
-        memoryManager.add("system", wpAiAgent.basePrompt);
+
+        if (text.includes('#apply')) {
+            const designData = JSON.parse(text.split('#apply')[1]?.trim() || '{}');
+            if (window.wpAiPagePanel?.applyDesign) {
+                window.wpAiPagePanel.applyDesign(designData);
+            }
+            memoryManager.clear();
+            memoryManager.add("system", wpAiAgent.basePrompt);
+        }
+
+        const plain = text.replace(/#smry[\s\S]*|```[\s\S]*?```|#code[\s\S]*/g, '').trim();
+        if (plain) wpAiUI.addMessage('agent', plain, true);
     }
-
-    const plain = text.replace(/#smry[\s\S]*|```[\s\S]*?```|#code[\s\S]*/g, '').trim();
-    if (plain) wpAiUI.addMessage('agent', plain, true);
-}
-
 
     async function compressData(data) {
         const stream = new Blob([data]).stream();
@@ -361,7 +348,7 @@ jQuery(function($) {
             $('#api-key-input').val('********');
             logManager.log("تم تحميل المفتاح الأصلي");
         }
-    
+
         trySendBasePrompt();
         try {
             const stored = memoryManager.getContext();
@@ -371,8 +358,6 @@ jQuery(function($) {
         } catch (e) {
             console.warn("فشل في فحص الذاكرة");
         }
-
-        trySendBasePrompt();
     });
 
     window.sendToAI = sendToAI;
