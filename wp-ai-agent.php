@@ -2,7 +2,7 @@
 /*
 Plugin Name: WP AI Agent
 Description: إضافة لدمج واجهة دردشة مع أنظمة ذكاء اصطناعي في ووردبريس.
-Version: 0.5.7
+Version: 0.5.9
 Author: Ahmad-Ajm
 */
 
