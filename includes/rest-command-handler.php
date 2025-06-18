@@ -3,6 +3,9 @@
 
 if (!defined('ABSPATH')) exit;
 
+// تضمين دوال التصحيح المشتركة
+require_once plugin_dir_path(__DIR__) . '/includes/common-debug.php';
+
 add_action('rest_api_init', function () {
     register_rest_route('wpai/v1', '/execute', [
         'methods' => 'POST',

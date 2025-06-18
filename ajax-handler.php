@@ -3,16 +3,9 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // لا وصول مباشر
 }
 
-/**
- * دالة مساعدة لتسجيل رسائل AJAX في debug.log.
- *
- * @param string $action اسم هوك AJAX الحالي مع الحالة (بدء/انتهاء).
- */
-function wpai_debug_log_ajax( $action ) {
-    if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-        error_log( "[ajax-handler.php::$action] استدعاء AJAX: $action" );
-    }
-}
+// تضمين دوال التصحيح المشتركة
+require_once plugin_dir_path( __FILE__ ) . 'includes/common-debug.php';
+
 
 /**
  * حفظ جلسة جديدة في قاعدة البيانات.

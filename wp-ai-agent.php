@@ -10,22 +10,8 @@ if (!defined('ABSPATH')) {
     exit; // لا وصول مباشر
 }
 
-/**
- * دالة مساعدة لتسجيل رسائل التصحيح.
- * تسجّل الرسائل في error_log إذا كان WP_DEBUG مفعلًا.
- *
- * @param string $message رسالة التتبع أو الخطأ.
- * @param string $context (اختياري) معلومات إضافية.
- */
-function wpai_debug_log($message, $context = '') {
-    if (defined('WP_DEBUG') && WP_DEBUG) {
-        $caller = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1];
-        $file = isset($caller['file']) ? basename($caller['file']) : '';
-        $func = isset($caller['function']) ? $caller['function'] : '';
-        $entry = sprintf("[%s::%s] %s %s", $file, $func, $message, $context);
-        error_log($entry);
-    }
-}
+// تضمين دوال التصحيح المشتركة
+require_once plugin_dir_path(__FILE__) . 'includes/common-debug.php';
 
 /**
  * عند تفعيل الإضافة: إنشاء جدول الجلسات في قاعدة البيانات إذا لم يكن موجودًا.
