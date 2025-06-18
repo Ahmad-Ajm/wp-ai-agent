@@ -21,6 +21,7 @@ add_action('rest_api_init', function () {
     ]);
 });
 
+
 function wpai_verify_api_key($request) {
     $api_key = $request->get_header('X-WPAI-API-KEY');
     $stored_key = get_option('wpai_global_api_key');
@@ -225,7 +226,7 @@ add_action('wp_enqueue_scripts', function () {
 });
 
 add_action('admin_enqueue_scripts', function () {
-    wp_localize_script('wpai-admin', 'dataIni', array_merge(
+    wp_localize_script('wpai-1', 'dataIni', array_merge(
         [
             'siteName' => get_bloginfo('name'),
             'siteUrl' => home_url(),

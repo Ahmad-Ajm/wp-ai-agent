@@ -360,5 +360,6 @@ jQuery(function($) {
         }
     });
 
+    window.memoryManager = memoryManager;
     window.sendToAI = sendToAI;
 });
