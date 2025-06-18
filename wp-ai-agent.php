@@ -118,7 +118,6 @@ function wpai_enqueue_admin_assets($hook) {
         'admin' => admin_url(),
         'locale' => get_locale()
     );
-wp_localize_script('wpai-1', 'dataIni', $site_info);
 
     // نحرص على تحميل الأكواد فقط في صفحات هذه الإضافة
     $allowed_hooks = [
@@ -189,6 +188,9 @@ wp_localize_script('wpai-1', 'dataIni', $site_info);
         true
     );
 
+    // Provide basic site information to the front end.
+    wp_localize_script('wpai-1', 'dataIni', $site_info);
+
     // تمرير متغيرات PHP إلى 1.js بما فيها البرومبت الرئيسي
     $prompt_file = plugin_dir_path(__FILE__) . 'prompt.txt';
     $base_prompt = '';
@@ -205,6 +207,7 @@ wp_localize_script('wpai-1', 'dataIni', $site_info);
             'sessionId'  => session_id() ?: uniqid(),
             'basePrompt' => $base_prompt,
             'userId'     => get_current_user_id(),
+            'pluginUrl'  => plugin_dir_url(__FILE__),
         ]
     );
 }

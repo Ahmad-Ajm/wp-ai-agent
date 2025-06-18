@@ -319,7 +319,8 @@ add_action( 'wp_ajax_wpai_get_site_info', function() {
 
 add_action( 'wp_ajax_wpai_execute_code', 'wpai_execute_code_callback' );
 function wpai_execute_code_callback() {
-    check_ajax_referer( 'wpai_nonce', 'security' );
+    // Use the same nonce used when localising the scripts.
+    check_ajax_referer( 'wp_ai_agent_nonce', 'security' );
 
     $type    = isset( $_POST['type'] )    ? sanitize_text_field( $_POST['type'] )    : '';
     $payload = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
@@ -335,17 +336,18 @@ function wpai_execute_code_callback() {
         }
 
         // 2. التحقق من سلامة البيانات حسب النوع
-        $validator = new CodeValidator();
+        // Classes reside under the plugin namespace.
+        $validator = new \WP_AI_Agent\Includes\CodeValidator();
         $validator->validate( $type, $data );
 
         // 3. إنشاء المنفذ المناسب وتنفيذ الكود
-        $executor = CodeExecutorFactory::create( $type );
+        $executor = \WP_AI_Agent\Includes\CodeExecutorFactory::create( $type );
         $result   = $executor->execute( $data );
 
         // 4. إعادة النتيجة بنجاح
         wp_send_json_success( $result );
 
-    } catch ( ValidationException $e ) {
+    } catch ( \WP_AI_Agent\Includes\ValidationException $e ) {
         // أخطاء التحقق
         wp_send_json_error( [
             'type'    => 'validation',
@@ -353,7 +355,7 @@ function wpai_execute_code_callback() {
             'errors'  => $e->getDetails(),
         ] );
 
-    } catch ( ExecutionException $e ) {
+    } catch ( \WP_AI_Agent\Includes\ExecutionException $e ) {
         // أخطاء أثناء التنفيذ
         wp_send_json_error( [
             'type'    => 'execution',

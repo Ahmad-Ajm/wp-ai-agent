@@ -1,6 +1,7 @@
 
 // page-preview.js - معاينة الصفحات المختارة
 jQuery(function($) {
+    const pluginDirUrl = (window.wpAiAgent && wpAiAgent.pluginUrl) || '';
     window.wpAiPagePanel = {
         currentPage: null,
         templates: {},
