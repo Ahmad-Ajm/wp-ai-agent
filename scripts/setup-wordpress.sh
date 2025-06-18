@@ -17,7 +17,7 @@ sudo mysql -e "FLUSH PRIVILEGES;"
 
 echo "📦 تحميل WordPress..."
 mkdir -p wordpress && cd wordpress
-wp core download --locale=ar --force --allow-root
+wp core download --force --allow-root
 
 echo "🧩 إنشاء ملف wp-config.php..."
 wp config create \
@@ -25,7 +25,6 @@ wp config create \
   --dbuser=wp_ai_user \
   --dbpass=wp_ai_pass \
   --dbhost=localhost \
-  --locale=ar \
   --skip-check \
   --allow-root
 
