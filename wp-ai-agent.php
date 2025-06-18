@@ -226,8 +226,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/rest-command-handler.php';
 function wpai_render_settings_page() {
     wpai_debug_log("بدء عرض صفحة الإعدادات");
 
-    // جلب المفتاح الحالي (إذا موجود)
+    // جلب المفاتيح الحالية (إذا موجودة)
     $current_key = get_user_meta(get_current_user_id(), '_wpai_api_key_raw', true);
+    $global_key  = get_option('wpai_global_api_key');
     ?>
     <div class="wrap wpai-container">
         <h1>إعدادات WP AI Agent</h1>
@@ -248,6 +249,17 @@ function wpai_render_settings_page() {
                 </tr>
             </table>
 
+            <!-- مفتاح REST العالمي -->
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="global-api-key">مفتاح REST العام:</label></th>
+                    <td>
+                        <input type="password" id="global-api-key" value="<?php echo esc_attr($global_key ? '********' : ''); ?>" placeholder="أدخل المفتاح العام" style="width:300px;">
+                        <p class="description">يُستخدم هذا المفتاح لمصادقة أوامر REST البعيدة.</p>
+                    </td>
+                </tr>
+            </table>
+
             <!-- حقل مفتاح الـ API -->
             <table class="form-table">
                 <tr>
@@ -263,6 +275,7 @@ function wpai_render_settings_page() {
             <p class="submit">
                 <button id="save-api-key" class="button button-primary">حفظ المفتاح</button>
                 <button id="clear-api-key" class="button">مسح المفتاح</button>
+                <button id="save-global-key" class="button">حفظ المفتاح العام</button>
             </p>
         </form>
     </div>
