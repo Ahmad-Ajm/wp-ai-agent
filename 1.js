@@ -300,6 +300,25 @@ jQuery(function($) {
         });
     });
 
+    $('#save-global-key').on('click', async function() {
+        const keyVal = $('#global-api-key').val().trim();
+        if (!keyVal) {
+            return alert('أدخل المفتاح العام');
+        }
+
+        await $.post(wpAiAgent.ajaxUrl, {
+            action: 'wpai_save_global_api_key',
+            key: keyVal,
+            security: wpAiAgent.nonce
+        }, function(response) {
+            if (response.success) {
+                logManager.log('تم حفظ المفتاح العام');
+            } else {
+                alert('فشل في حفظ المفتاح العام');
+            }
+        });
+    });
+
     $('#clear-api-key').on('click', async function() {
         await $.post(wpAiAgent.ajaxUrl, {
             action: 'wpai_clear_api_key',
