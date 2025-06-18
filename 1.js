@@ -63,23 +63,33 @@ jQuery(function($) {
 
     let basePromptSent = false;
 
+    async function waitForDataIni(maxTries = 20) {
+        let tries = 0;
+        while (typeof window.dataIni === 'undefined' && tries < maxTries) {
+            await new Promise(r => setTimeout(r, 250));
+            tries++;
+        }
+    }
+
     async function trySendBasePrompt() {
-    if (!sessionStorage.getItem("basePromptSent") && wpAiAgent.basePrompt?.trim()) {
-        // إنشاء محتوى البرومبت الكامل
+        if (basePromptSent || sessionStorage.getItem("basePromptSent") || !wpAiAgent.basePrompt?.trim()) {
+            return;
+        }
+
+        await waitForDataIni();
+
         let fullPrompt = wpAiAgent.basePrompt;
-        
-        // إضافة dataIni إذا كان متاحاً
+
         if (typeof window.dataIni !== 'undefined') {
             const dataPayload = JSON.stringify(window.dataIni, null, 2);
             fullPrompt += "\n\n#dataini\n" + dataPayload;
         }
-        
-        memoryManager.add("system", fullPrompt);
+
+        await memoryManager.add("system", fullPrompt);
         logManager.log("✅ تم إرسال البرومبت الأساسي مع بيانات الموقع");
         sessionStorage.setItem("basePromptSent", "true");
         basePromptSent = true;
     }
-}
 
     let apiKey = '';
     let aiProvider = 'gpt';
@@ -92,7 +102,7 @@ jQuery(function($) {
 
     wpAiUI.showLoading();
     try {
-        trySendBasePrompt(); // تأكد من إرسال البرومبت عند كل بداية جلسة
+        await trySendBasePrompt(); // تأكد من إرسال البرومبت عند كل بداية جلسة
     } catch (e) {
         logManager.error(e, "initializeAI - إضافة البرومبت الرئيسي");
     } finally {
@@ -117,6 +127,8 @@ jQuery(function($) {
         logManager.log("⚠️ الـ nonce غير متوفر. تأكد من تحميل الصفحة من wp-admin.");
         return;
     }
+
+    await trySendBasePrompt();
     await memoryManager.add("user", userMessage);
     logManager.log("📤 تم إرسال إلى الذكاء:" + userMessage);
 
@@ -170,6 +182,7 @@ jQuery(function($) {
 
 
     async function sendToAIWithMessages(messagesToSend, hideFromChat = false) {
+        await trySendBasePrompt();
         const endpoint = aiProvider === 'gpt'
             ? "https://api.openai.com/v1/chat/completions"
             : "https://api.deepseek.com/v1/chat/completions";
@@ -349,7 +362,7 @@ jQuery(function($) {
             logManager.log("تم تحميل المفتاح الأصلي");
         }
 
-        trySendBasePrompt();
+        await trySendBasePrompt();
         try {
             const stored = memoryManager.getContext();
             if (!stored || stored.length === 0) {
