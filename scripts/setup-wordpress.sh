@@ -8,10 +8,8 @@ echo "🔧 تثبيت wp-cli..."
 curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
 chmod +x wp-cli.phar && sudo mv wp-cli.phar /usr/local/bin/wp
 
-echo "🛠️ تشغيل خدمة قاعدة البيانات..."
+echo "🔐 إعداد قاعدة بيانات MariaDB..."
 sudo service mariadb start
-
-echo "🗄️ إنشاء قاعدة بيانات ومستخدم..."
 sudo mysql -e "CREATE DATABASE wp_ai_db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 sudo mysql -e "CREATE USER 'wp_ai_user'@'localhost' IDENTIFIED BY 'wp_ai_pass';"
 sudo mysql -e "GRANT ALL PRIVILEGES ON wp_ai_db.* TO 'wp_ai_user'@'localhost';"
@@ -21,7 +19,7 @@ echo "📦 تحميل WordPress..."
 mkdir -p wordpress && cd wordpress
 wp core download --locale=ar --force --allow-root
 
-echo "🔧 إعداد ملف wp-config.php..."
+echo "🧩 إنشاء ملف wp-config.php..."
 wp config create \
   --dbname=wp_ai_db \
   --dbuser=wp_ai_user \
@@ -40,8 +38,8 @@ wp core install \
   --admin_email="admin@example.com" \
   --allow-root
 
-echo "🔌 ربط الإضافة وتفعيلها..."
+echo "🔗 ربط الإضافة وتفعيلها..."
 ln -s /workspace/wp-ai-agent ./wp-content/plugins/wp-ai-agent
 wp plugin activate wp-ai-agent --allow-root
 
-echo "✅ تم التثبيت وتفعيل الإضافة بنجاح 🎉"
+echo "✅ تم التثبيت والتفعيل بنجاح"
