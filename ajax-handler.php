@@ -198,6 +198,28 @@ add_action( 'wp_ajax_wpai_save_global_api_key', function() {
 } );
 
 /**
+ * جلب المفتاح العالمي للأوامر REST.
+ */
+add_action( 'wp_ajax_wpai_get_global_api_key', function() {
+    wpai_debug_log_ajax( 'wpai_get_global_api_key - بدء' );
+    check_ajax_referer( 'wp_ai_agent_nonce', 'security' );
+
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( [ 'message' => 'صلاحيات غير كافية.' ] );
+        return;
+    }
+
+    $key = get_option( 'wpai_global_api_key' );
+    if ( empty( $key ) ) {
+        wp_send_json_error( [ 'message' => 'لا يوجد مفتاح.' ] );
+        wpai_debug_log_ajax( 'wpai_get_global_api_key - لا يوجد مفتاح' );
+    } else {
+        wp_send_json_success( [ 'key' => $key ] );
+        wpai_debug_log_ajax( 'wpai_get_global_api_key - انتهى بنجاح' );
+    }
+} );
+
+/**
  * جلب مفتاح API الأصلي للمستخدم الحالي.
  */
 add_action( 'wp_ajax_wpai_get_api_key', function() {
