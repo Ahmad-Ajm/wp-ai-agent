@@ -37,14 +37,6 @@ function wpai_activate_plugin() {
 
 
     dbDelta($sql);
-
-    // توليد مفتاح REST عام إذا لم يكن موجودًا بالفعل
-    if (!get_option('wpai_global_api_key')) {
-        $generated_key = bin2hex(random_bytes(16));
-        add_option('wpai_global_api_key', $generated_key);
-        wpai_debug_log('تم توليد مفتاح REST عام بشكل تلقائي');
-    }
-
     wpai_debug_log("تم تشغيل wpai_activate_plugin: تم إنشاء جدول الجلسات إن لم يكن موجودًا");
 }
 register_activation_hook(__FILE__, 'wpai_activate_plugin');
@@ -202,7 +194,6 @@ function wpai_enqueue_admin_assets($hook) {
             'basePrompt' => $base_prompt,
             'userId'     => get_current_user_id(),
             'pluginUrl'  => plugin_dir_url(__FILE__),
-            'restEndpoint' => rest_url('wpai/v1/execute'),
         ]
     );
 }
