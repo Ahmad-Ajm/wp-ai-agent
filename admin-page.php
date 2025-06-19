@@ -46,6 +46,41 @@ function wpai_render_agent_page() {
                     </div>
                     <div class="wpai-system-logs"></div>
                 </div>
+
+                <!-- سجلات الأوامر -->
+                <div id="command-logs" class="wpai-log-container">
+                    <h2>سجلات الأوامر</h2>
+                    <div class="wpai-log-controls">
+                        <button id="refresh-command-logs" class="button">تحديث السجلات</button>
+                    </div>
+                    <div class="wpai-command-logs"></div>
+                </div>
+
+                <script>
+                jQuery(function($) {
+                    function loadCommandLogs() {
+                        $.post(ajaxurl, {
+                            action: 'wpai_get_command_logs',
+                            security: wpAiAgent.nonce
+                        }, function(response) {
+                            if (response.success) {
+                                $('.wpai-command-logs').html(
+                                    response.data.logs.map(function(log) {
+                                        return '<div class="log-entry">' +
+                                            '<strong>' + log.timestamp + '</strong> - ' +
+                                            log.command + ': ' + log.status +
+                                            '<button class="view-log-details button" data-log=' + JSON.stringify(log) + '>التفاصيل</button>' +
+                                            '</div>';
+                                    }).join('')
+                                );
+                            }
+                        });
+                    }
+
+                    $('#refresh-command-logs').click(loadCommandLogs);
+                    loadCommandLogs();
+                });
+                </script>
             </div>
             <div id="container3" style="display: none;"></div>
         </div>
