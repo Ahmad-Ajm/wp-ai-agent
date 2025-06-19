@@ -79,33 +79,22 @@
       }
     },
 
-    async handleJSON(json) {
+    handleJSON(json) {
       wpAiUI.appendLog(`⏳ التحقق من بنية JSON...`);
       if (!this.isValidJSON(json)) {
         throw new Error('بنية JSON غير صالحة');
       }
       wpAiUI.appendLog(`🚀 إرسال JSON للسيرفر...`);
-
-      const headers = { 'Content-Type': 'application/json' };
-      // إضافة مفتاح REST العام للترويسات عند توفره
-      if (window.globalRestKey) {
-        headers['x-api-key'] = window.globalRestKey;
-      }
-
-      const res = await fetch(wpAiAgent.restEndpoint, {
-        method: 'POST',
-        headers,
-        body: json
+      return $.post(ajaxUrl, {
+        action: 'wpai_execute_code',
+        payload: json,
+        type: 'json'
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || res.statusText);
-      return data;
     },
 
     handlePHP(code) {
       wpAiUI.appendLog(`🚀 إرسال كود PHP للسيرفر...`);
-      return $.post(wpAiAgent.ajaxUrl, {
+      return $.post(ajaxUrl, {
         action: 'wpai_execute_code',
         payload: code,
         type: 'php',

@@ -92,8 +92,6 @@ jQuery(function($) {
     }
 
     let apiKey = '';
-    // مفتاح REST العام للأوامر
-    let globalRestKey = '';
     let aiProvider = 'gpt';
     let instructionsSent = false;
     const PROMPT_SENT_KEY = 'wpai_prompt_sent';
@@ -383,17 +381,6 @@ jQuery(function($) {
             logManager.log("تم تحميل المفتاح الأصلي");
         }
 
-        // جلب المفتاح العام للأوامر REST من الخادم
-        const restKeyResp = await $.post(wpAiAgent.ajaxUrl, {
-            action: 'wpai_get_global_api_key',
-            security: wpAiAgent.nonce
-        });
-
-        if (restKeyResp.success && restKeyResp.data.key) {
-            globalRestKey = restKeyResp.data.key;
-            logManager.log("🔐 تم تحميل المفتاح العام");
-        }
-
         await trySendBasePrompt();
         try {
             const stored = memoryManager.getContext();
@@ -407,5 +394,4 @@ jQuery(function($) {
 
     window.memoryManager = memoryManager;
     window.sendToAI = sendToAI;
-    window.globalRestKey = globalRestKey;
 });
