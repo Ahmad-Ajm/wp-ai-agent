@@ -233,9 +233,15 @@ add_action( 'wp_ajax_wpai_get_logs', function() {
     wpai_debug_log_ajax( 'wpai_get_logs - بدء' );
     check_ajax_referer( 'wp_ai_agent_nonce', 'security' );
 
-    // لنفترض أننا نخزن السجل في جدول wpai_events أو نقرأه من ملف debug.log
-    // هنا مثال بسيط: نعيد مصفوفة فارغة أو يمكنك تنفيذ جلب القراءات
-    $logs = []; // يمكنك تعديلها حسب طريقة التخزين الفعلية
+    $log_file = defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG
+        ? ( is_string( WP_DEBUG_LOG ) ? WP_DEBUG_LOG : WP_CONTENT_DIR . '/debug.log' )
+        : WP_CONTENT_DIR . '/debug.log';
+
+    $logs = [];
+    if ( file_exists( $log_file ) && is_readable( $log_file ) ) {
+        $lines = file( $log_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+        $logs  = array_slice( $lines, -100 );
+    }
 
     wp_send_json_success( [ 'logs' => $logs ] );
     wpai_debug_log_ajax( 'wpai_get_logs - انتهى بنجاح' );
@@ -248,7 +254,14 @@ add_action( 'wp_ajax_wpai_clear_logs', function() {
     wpai_debug_log_ajax( 'wpai_clear_logs - بدء' );
     check_ajax_referer( 'wp_ai_agent_nonce', 'security' );
 
-    // إذا استخدمت جدولًا أو ملفًا، قم بمسحه هنا
+    $log_file = defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG
+        ? ( is_string( WP_DEBUG_LOG ) ? WP_DEBUG_LOG : WP_CONTENT_DIR . '/debug.log' )
+        : WP_CONTENT_DIR . '/debug.log';
+
+    if ( file_exists( $log_file ) && is_writable( $log_file ) ) {
+        file_put_contents( $log_file, '' );
+    }
+
     wp_send_json_success();
     wpai_debug_log_ajax( 'wpai_clear_logs - انتهى بنجاح' );
 } );
