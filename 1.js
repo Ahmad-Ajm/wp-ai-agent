@@ -350,6 +350,33 @@ jQuery(function($) {
         });
     });
 
+    async function loadSystemLogs() {
+        const res = await $.post(wpAiAgent.ajaxUrl, {
+            action: 'wpai_get_logs',
+            security: wpAiAgent.nonce
+        });
+        const container = $('.wpai-system-logs');
+        if (res.success && res.data.logs) {
+            container.empty();
+            res.data.logs.forEach(line => {
+                container.append(`<div class="log-entry">${$('<div>').text(line).html()}</div>`);
+            });
+            container.scrollTop(container[0].scrollHeight);
+        } else {
+            container.html('<div class="error">فشل جلب السجلات</div>');
+        }
+    }
+
+    $('#refresh-logs').on('click', loadSystemLogs);
+
+    $('#clear-logs').on('click', async function() {
+        await $.post(wpAiAgent.ajaxUrl, {
+            action: 'wpai_clear_logs',
+            security: wpAiAgent.nonce
+        });
+        $('.wpai-system-logs').empty();
+    });
+
     $(document).ready(async function() {
         const response = await $.post(wpAiAgent.ajaxUrl, {
             action: 'wpai_get_api_key',
@@ -371,6 +398,8 @@ jQuery(function($) {
         } catch (e) {
             console.warn("فشل في فحص الذاكرة");
         }
+
+        loadSystemLogs();
     });
 
     window.memoryManager = memoryManager;
