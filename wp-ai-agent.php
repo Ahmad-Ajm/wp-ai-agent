@@ -255,6 +255,7 @@ function wpai_render_settings_page() {
                     <td>
                         <input type="password" id="api-key-input" name="api_key" value="<?php echo esc_attr($current_key ? '********' : ''); ?>" placeholder="أدخل مفتاح API هنا" style="width:300px;">
                         <p class="description">إذا كنت تريد تغيير المفتاح، أدخله هنا ثم اضغط “حفظ المفتاح”.</p>
+                        <p class="description">ترك هذا الحقل فارغًا يعطّل التحقق من الطلبات عبر REST.</p>
                     </td>
                 </tr>
             </table>

@@ -23,8 +23,14 @@ add_action('rest_api_init', function () {
 
 
 function wpai_verify_api_key($request) {
-    $api_key = $request->get_header('X-WPAI-API-KEY');
+    $api_key   = $request->get_header('X-WPAI-API-KEY');
     $stored_key = get_option('wpai_global_api_key');
+
+    // إذا لم يتم تعيين مفتاح عام، نتخطى التحقق للسماح بالطلبات
+    if (empty($stored_key)) {
+        return true;
+    }
+
     return $api_key && hash_equals($stored_key, $api_key);
 }
 
