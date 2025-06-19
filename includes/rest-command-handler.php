@@ -26,17 +26,9 @@ add_action('rest_api_init', function () {
 
 
 function wpai_verify_api_key($request) {
-    $api_key   = $request->get_header('X-WPAI-API-KEY');
+    $api_key = $request->get_header('X-WPAI-API-KEY');
     $stored_key = get_option('wpai_global_api_key');
-
-    wpai_debug_log("المفتاح المستلم: $api_key", 'API_KEY_VERIFY');
-    wpai_debug_log("المفتاح المخزن: $stored_key", 'API_KEY_VERIFY');
-
-    $is_valid = $api_key && hash_equals($stored_key, $api_key);
-
-    wpai_debug_log('نتيجة التحقق: ' . ($is_valid ? 'صالح' : 'غير صالح'), 'API_KEY_VERIFY');
-
-    return $is_valid;
+    return $api_key && hash_equals($stored_key, $api_key);
 }
 
 function wpai_handle_command(WP_REST_Request $request) {
@@ -48,12 +40,6 @@ function wpai_handle_command(WP_REST_Request $request) {
         'update_option', 'install_plugin', 'optimize_site', 'create_menu'
     ];
 
-    if (!current_user_can('edit_posts')) {
-        $error = new WP_Error('permission_denied', 'صلاحيات غير كافية', ['status' => 403]);
-        wpai_debug_log('خطأ الصلاحيات: المستخدم لا يملك صلاحية edit_posts', 'PERMISSION_ERROR');
-        return $error;
-    }
-
     if (!in_array($command, $allowed_commands)) {
         return new WP_Error('invalid_command', 'الأمر غير مسموح به', ['status' => 403]);
     }
@@ -64,57 +50,23 @@ function wpai_handle_command(WP_REST_Request $request) {
 }
 
 function wpai_execute_command($command, $params) {
-    wpai_debug_log("بدء تنفيذ الأمر: $command", 'EXECUTE_COMMAND');
-
-    try {
-        switch ($command) {
-            case 'create_post':
-                $result = wpai_create_post($params);
-                wpai_debug_log('نتيجة إنشاء المنشور: ' . print_r($result, true), 'CREATE_POST');
-                return $result;
-
-            case 'create_page':
-                $result = wpai_create_page($params);
-                wpai_debug_log('نتيجة إنشاء الصفحة: ' . print_r($result, true), 'CREATE_PAGE');
-                return $result;
-
-            case 'inject_css':
-                $result = wpai_inject_css($params);
-                wpai_debug_log('نتيجة حقن CSS: ' . print_r($result, true), 'INJECT_CSS');
-                return $result;
-
-            case 'update_option':
-                $result = wpai_update_option($params);
-                wpai_debug_log('نتيجة تحديث الإعداد: ' . print_r($result, true), 'UPDATE_OPTION');
-                return $result;
-
-            case 'install_plugin':
-                $result = wpai_install_plugin($params);
-                wpai_debug_log('نتيجة تثبيت الإضافة: ' . print_r($result, true), 'INSTALL_PLUGIN');
-                return $result;
-
-            case 'optimize_site':
-                $result = wpai_optimize_site($params);
-                wpai_debug_log('نتيجة التحسين: ' . print_r($result, true), 'OPTIMIZE_SITE');
-                return $result;
-
-            case 'create_menu':
-                $result = wpai_create_menu($params);
-                wpai_debug_log('نتيجة إنشاء القائمة: ' . print_r($result, true), 'CREATE_MENU');
-                return $result;
-
-            default:
-                $error = new WP_Error('unknown_command', 'الأمر غير معروف', ['status' => 400]);
-                wpai_debug_log("خطأ: أمر غير معروف - $command", 'UNKNOWN_COMMAND');
-                return $error;
-        }
-    } catch (Exception $e) {
-        $error = new WP_Error('execution_error', 'خطأ في التنفيذ: ' . $e->getMessage(), [
-            'status' => 500,
-            'exception' => $e->getTraceAsString(),
-        ]);
-        wpai_debug_log('خطأ استثناء: ' . $e->getMessage(), 'EXECUTION_EXCEPTION');
-        return $error;
+    switch ($command) {
+        case 'create_post':
+            return wpai_create_post($params);
+        case 'create_page':
+            return wpai_create_page($params);
+        case 'inject_css':
+            return wpai_inject_css($params);
+        case 'update_option':
+            return wpai_update_option($params);
+        case 'install_plugin':
+            return wpai_install_plugin($params);
+        case 'optimize_site':
+            return wpai_optimize_site($params);
+        case 'create_menu':
+            return wpai_create_menu($params);
+        default:
+            return new WP_Error('unknown_command', 'الأمر غير معروف', ['status' => 400]);
     }
 }
 
@@ -122,27 +74,16 @@ function wpai_create_post($params) {
     if (empty($params['title']) || empty($params['content'])) {
         return new WP_Error('missing_params', 'العنوان والمحتوى مطلوبان', ['status' => 400]);
     }
-
-    // إصلاح مشكلة المحتوى الغني
-    $post_content = wp_kses_post($params['content']);
-
     $post_id = wp_insert_post([
         'post_title'   => sanitize_text_field($params['title']),
-        'post_content' => $post_content,
+        'post_content' => wp_kses_post($params['content']),
         'post_status'  => sanitize_text_field($params['status'] ?? 'draft'),
         'post_type'    => sanitize_text_field($params['type'] ?? 'post')
     ]);
-
-    if (is_wp_error($post_id)) {
-        wpai_debug_log('خطأ في إنشاء المنشور: ' . $post_id->get_error_message(), 'POST_CREATION_ERROR');
-    }
-
     return [
         'success' => !is_wp_error($post_id),
         'post_id' => $post_id,
-        'message' => is_wp_error($post_id)
-            ? 'فشل إنشاء المنشور: ' . $post_id->get_error_message()
-            : 'تم إنشاء المنشور بنجاح'
+        'message' => 'تم إنشاء المنشور بنجاح'
     ];
 }
 
@@ -246,38 +187,19 @@ function wpai_create_menu($params) {
 }
 
 function wpai_log_action($command, $params, $result) {
-    $status = 'unknown';
-
-    if (is_wp_error($result)) {
-        $status = 'error';
-        $error_details = [
-            'code' => $result->get_error_code(),
-            'message' => $result->get_error_message(),
-            'data' => $result->get_error_data(),
-        ];
-        wpai_debug_log('خطأ في الأمر: ' . print_r($error_details, true), 'COMMAND_ERROR');
-    } elseif (isset($result['success'])) {
-        $status = $result['success'] ? 'success' : 'partial_failure';
-    }
-
     $log_entry = [
         'timestamp' => current_time('mysql'),
         'command' => $command,
         'params' => $params,
         'result' => $result,
-        'status' => $status,
+        'status' => isset($result['success']) ? ($result['success'] ? 'success' : 'error') : 'unknown'
     ];
-
     $logs = get_option('wpai_command_logs', []);
     $logs[] = $log_entry;
-
     if (count($logs) > 20) {
         $logs = array_slice($logs, -20);
     }
-
     update_option('wpai_command_logs', $logs);
-
-    wpai_debug_log('سجل الأمر: ' . json_encode($log_entry), 'COMMAND_LOG');
 }
 
 function wpai_get_available_commands() {
