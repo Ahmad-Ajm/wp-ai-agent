@@ -28,15 +28,20 @@ function wpai_verify_api_key($request) {
 
     // إذا لم يتم تعيين مفتاح عام، نتخطى التحقق للسماح بالطلبات
     if (empty($stored_key)) {
+        wpai_debug_log('wpai_verify_api_key: bypassed - no global key set');
         return true;
     }
 
-    return $api_key && hash_equals($stored_key, $api_key);
+    $result = $api_key && hash_equals($stored_key, $api_key);
+    wpai_debug_log($result ? 'wpai_verify_api_key: success' : 'wpai_verify_api_key: failed');
+    return $result;
 }
 
 function wpai_handle_command(WP_REST_Request $request) {
     $command = sanitize_text_field($request->get_param('command'));
     $params = $request->get_param('params');
+
+    wpai_debug_log('wpai_handle_command received', '[command=' . $command . ' params=' . wp_json_encode($params) . ']');
 
     $allowed_commands = [
         'create_post', 'create_page', 'inject_css',
@@ -44,15 +49,22 @@ function wpai_handle_command(WP_REST_Request $request) {
     ];
 
     if (!in_array($command, $allowed_commands)) {
+        wpai_debug_log('wpai_handle_command: invalid command', '[command=' . $command . ']');
         return new WP_Error('invalid_command', 'الأمر غير مسموح به', ['status' => 403]);
     }
 
     $result = wpai_execute_command($command, $params);
+    if (is_wp_error($result)) {
+        wpai_debug_log('wpai_handle_command result error', '[error=' . $result->get_error_message() . ']');
+    } else {
+        wpai_debug_log('wpai_handle_command result', '[result=' . wp_json_encode($result) . ']');
+    }
     wpai_log_action($command, $params, $result);
     return rest_ensure_response($result);
 }
 
 function wpai_execute_command($command, $params) {
+    wpai_debug_log('wpai_execute_command', '[command=' . $command . ' params=' . wp_json_encode($params) . ']');
     switch ($command) {
         case 'create_post':
             return wpai_create_post($params);
