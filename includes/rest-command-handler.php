@@ -11,7 +11,7 @@ add_action('rest_api_init', function () {
         'methods' => 'POST',
         'callback' => 'wpai_handle_command',
         'permission_callback' => function ($request) {
-            return is_ssl() && wpai_verify_api_key($request);
+            return is_ssl() && current_user_can('manage_options');
         },
     ]);
 
@@ -19,17 +19,12 @@ add_action('rest_api_init', function () {
         'methods' => 'GET',
         'callback' => 'wpai_get_available_commands',
         'permission_callback' => function($request) {
-            return wpai_verify_api_key($request);
+            return current_user_can('manage_options');
         }
     ]);
 });
 
 
-function wpai_verify_api_key($request) {
-    $api_key = $request->get_header('X-WPAI-API-KEY');
-    $stored_key = get_option('wpai_global_api_key');
-    return $api_key && hash_equals($stored_key, $api_key);
-}
 
 function wpai_handle_command(WP_REST_Request $request) {
     $command = sanitize_text_field($request->get_param('command'));
@@ -115,7 +110,7 @@ function wpai_inject_css($params) {
 }
 
 function wpai_update_option($params) {
-    $protected_options = ['siteurl', 'home', 'admin_email', 'new_admin_email', 'wpai_global_api_key', 'users_can_register'];
+    $protected_options = ['siteurl', 'home', 'admin_email', 'new_admin_email', 'users_can_register'];
     if (in_array($params['key'], $protected_options)) {
         return new WP_Error('protected_option', 'هذا الإعداد محمي ولا يمكن تعديله', ['status' => 403]);
     }
