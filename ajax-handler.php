@@ -388,3 +388,11 @@ function wpai_execute_code_callback() {
         ] );
     }
 }
+
+// إرجاع سجلات الأوامر عبر AJAX
+add_action('wp_ajax_wpai_get_command_logs', function() {
+    check_ajax_referer('wp_ai_agent_nonce', 'security');
+
+    $logs = get_option('wpai_command_logs', []);
+    wp_send_json_success(['logs' => $logs]);
+});
