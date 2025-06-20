@@ -217,7 +217,7 @@ function wpai_enqueue_admin_assets($hook) {
  */
 require_once plugin_dir_path(__FILE__) . 'admin-page.php';
 require_once plugin_dir_path(__FILE__) . 'ajax-handler.php';
-require_once plugin_dir_path(__FILE__) . 'includes/rest-command-handler.php';
+
 
 
 /**
