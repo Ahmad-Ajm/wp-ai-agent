@@ -324,5 +324,135 @@ add_action( 'wp_ajax_wpai_get_site_info', function() {
     wpai_debug_log_ajax( 'wpai_get_site_info - انتهى بنجاح' );
 } );
 
+/**
+ * تنفيذ الكود المرسل من الذكاء (PHP أو JSON).
+ */
+add_action( 'wp_ajax_wpai_execute_code', 'wpai_execute_code_handler' );
+function wpai_execute_code_handler() {
+    wpai_debug_log_ajax( 'wpai_execute_code - بدء' );
+    check_ajax_referer( 'wp_ai_agent_nonce', 'security' );
+
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( [ 'message' => 'لا تملك صلاحيات التنفيذ.' ] );
+        wpai_debug_log_ajax( 'wpai_execute_code - خطأ صلاحيات' );
+        return;
+    }
+
+    $payload = isset( $_POST['payload'] ) ? wp_unslash( $_POST['payload'] ) : '';
+    $type    = isset( $_POST['type'] ) ? sanitize_text_field( $_POST['type'] ) : '';
+
+    if ( ! $payload || ! $type ) {
+        wp_send_json_error( [ 'message' => 'بيانات ناقصة.' ] );
+        wpai_debug_log_ajax( 'wpai_execute_code - خطأ بيانات ناقصة' );
+        return;
+    }
+
+    try {
+        if ( 'json' === $type ) {
+            $data = json_decode( $payload, true );
+            if ( json_last_error() !== JSON_ERROR_NONE ) {
+                throw new Exception( 'JSON غير صالح: ' . json_last_error_msg() );
+            }
+            wp_send_json_success( [ 'result' => $data ] );
+            wpai_debug_log_ajax( 'wpai_execute_code - JSON success' );
+            return;
+        }
+
+        if ( 'php' === $type ) {
+            $syntax = wpai_php_syntax_check( $payload );
+            if ( $syntax ) {
+                throw new Exception( $syntax );
+            }
+
+            $conflict = wpai_php_conflict_check( $payload );
+            if ( $conflict ) {
+                throw new Exception( $conflict );
+            }
+
+            ob_start();
+            $return = eval( $payload );
+            $output = ob_get_clean();
+            wp_send_json_success( [ 'result' => $return, 'output' => $output ] );
+            wpai_debug_log_ajax( 'wpai_execute_code - PHP success' );
+            return;
+        }
+
+        throw new Exception( 'نوع كود غير مدعوم.' );
+    } catch ( Exception $e ) {
+        wp_send_json_error( [ 'message' => $e->getMessage() ] );
+        wpai_debug_log_ajax( 'wpai_execute_code - خطأ: ' . $e->getMessage() );
+    }
+}
+
+/**
+ * فحص بناء كود PHP باستخدام php -l إن أمكن أو eval.
+ *
+ * @param string $code
+ * @return string رسالة الخطأ أو فارغة إن كان البناء سليماً.
+ */
+function wpai_php_syntax_check( $code ) {
+    if ( function_exists( 'shell_exec' ) && ! str_contains( ini_get( 'disable_functions' ), 'shell_exec' ) ) {
+        $tmp = wp_tempnam( 'wpai_php_lint' );
+        file_put_contents( $tmp, "<?php\n" . $code );
+        $output = shell_exec( 'php -d display_errors=1 -l ' . escapeshellarg( $tmp ) . ' 2>&1' );
+        unlink( $tmp );
+        if ( strpos( $output, 'No syntax errors detected' ) !== false ) {
+            return '';
+        }
+        return trim( $output );
+    }
+
+    try {
+        eval( 'if(false){' . $code . '}' );
+        return '';
+    } catch ( ParseError $e ) {
+        return $e->getMessage();
+    } catch ( Throwable $t ) {
+        return $t->getMessage();
+    }
+}
+
+/**
+ * التحقق من التعارضات أو التكرار في تعريف الدوال أو الأصناف ومنع الدوال المحظورة.
+ *
+ * @param string $code
+ * @return string رسالة الخطأ أو فارغة إن كان كل شيء سليماً.
+ */
+function wpai_php_conflict_check( $code ) {
+    $errors    = [];
+    $disallowed = '/\b(exec|shell_exec|passthru|system|proc_open|popen|eval)\s*\(/i';
+    if ( preg_match( $disallowed, $code, $m ) ) {
+        $errors[] = 'استخدام دالة محظورة: ' . $m[1];
+    }
+
+    if ( preg_match_all( '/function\s+([a-zA-Z0-9_]+)\s*\(/', $code, $funcs ) ) {
+        $seen = [];
+        foreach ( $funcs[1] as $fn ) {
+            if ( isset( $seen[ $fn ] ) ) {
+                $errors[] = 'تكرار تعريف الدالة ' . $fn;
+            }
+            if ( function_exists( $fn ) ) {
+                $errors[] = 'الدالة ' . $fn . ' معرفة مسبقاً';
+            }
+            $seen[ $fn ] = true;
+        }
+    }
+
+    if ( preg_match_all( '/class\s+([a-zA-Z0-9_]+)/', $code, $classes ) ) {
+        $seen_c = [];
+        foreach ( $classes[1] as $cl ) {
+            if ( isset( $seen_c[ $cl ] ) ) {
+                $errors[] = 'تكرار تعريف الصنف ' . $cl;
+            }
+            if ( class_exists( $cl ) ) {
+                $errors[] = 'الصنف ' . $cl . ' معرف مسبقاً';
+            }
+            $seen_c[ $cl ] = true;
+        }
+    }
+
+    return $errors ? implode( ' - ', $errors ) : '';
+}
+
 
 
